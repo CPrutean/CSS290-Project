@@ -1,10 +1,16 @@
 import os
 import time
 import numpy as np
+import onnxruntime
+from PIL import Image
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.applications.resnet50 import preprocess_input
+model_path = '' #Will be implemented when training is completed
+session = onnxruntime.InferenceSession(model_path)
+input_name = session.get_inputs()[0].name
+input_data = np.array([])
 
 
 class ImageProcessor(FileSystemEventHandler):
@@ -45,6 +51,7 @@ class ImageProcessor(FileSystemEventHandler):
         if not event.is_directory:
             print(f"New file detected: {event.src_path}")
             self.process_image(event.src_path)
+            input_data = np.append(self.process_image(event.src_path))
 
     def on_modified(self, event):
         """Handle modified files (only if not processed before)"""
@@ -64,6 +71,10 @@ def monitor_directory(directory_path):
     print(f"Monitoring directory: {directory_path}")
     print("Press Ctrl+C to stop")
 
+    output_name = session.get_outputs()[0].name
+    output_data = session.run([output_name], {input_data.astype(np.float32)})[0]
+    image = Image.open(output_data)
+    image.show()
     try:
         # Keep the script running
         while True:
